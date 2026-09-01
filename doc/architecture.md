@@ -147,3 +147,35 @@ Cloudflare Workers API側ではClerkのセッション / トークンを検証�
 - 安全性 / モデレーション判定
 
 TensorFlow.js + MobileNet系は主に猫検出側で利用し、安全性判定は別モデルを採用する。
+
+
+## 12. Cloudflare Workers AI Visionによる最終判定
+
+投稿公開前の最終判定にCloudflare Workers AI Visionを必須で使用する。
+
+想定モデル:
+- @cf/meta/llama-3.2-11b-vision-instruct
+- または同等の画像入力対応モデル
+
+役割:
+- 猫が実写かの最終確認
+- AI生成画像 / イラスト疑いの補助判定
+- 虐待
+- 死骸
+- 強い流血
+- 重大な怪我
+- その他、サービス上不適切な重大表現
+
+判定フロー:
+1. 端末側でTensorFlow.js + COCO-SSDによる猫検出
+2. 端末側でNSFWJS等による軽量な補助判定
+3. Cloudflare Workersへ画像を送信
+4. Workers AI Visionで最終判定
+5. 最終判定がOKの場合のみ投稿を確定
+
+端末側判定はUX改善とAI呼び出し削減を目的とする補助判定とし、セキュリティ上の最終判断はサーバー側で行う。
+
+コスト方針:
+- Workers AIの無料枠を最大限利用する
+- 端末側判定で明確なNG画像を事前に除外し、Workers AIへのリクエスト数を抑える
+- 無料枠超過時の挙動は、サービス運用開始前に別途決定する
