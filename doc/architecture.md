@@ -103,9 +103,47 @@ WebとMobileで見た目と操作感は揃えるが、React DOMとReact Native�
 ## 8. 今後決める事項
 
 - Next.jsのCloudflareデプロイ方式の最終決定
-- APIフレームワーク
-- ORM / D1アクセスライブラリ
-- 認証基盤
-- 画像判定に使用する具体的なモデル / API
 - 状態管理ライブラリ
 - Web / Mobile共通のデザイントークン実装方法
+- 状態管理ライブラリ
+- Web / Mobile共通のデザイントークン実装方法
+
+
+## 9. API / DBアクセス
+
+- APIフレームワーク: Hono
+- ORM / D1アクセス: Drizzle ORM
+
+Drizzle ORMを採用する理由:
+- Cloudflare D1との相性が良い
+- TypeScriptでスキーマ定義できる
+- 型安全なクエリを記述できる
+- マイグレーションをDrizzle Kitで管理できる
+- SQLを必要に応じて直接扱えるため、重すぎない
+
+## 10. 認証基盤
+
+第一候補として Clerk を採用する。
+
+要件:
+- Apple認証
+- Google認証
+- メールアドレス認証
+- Web / iOS / Androidで共通利用
+- Expo / React Native対応
+
+Cloudflare Workers API側ではClerkのセッション / トークンを検証し、アプリ固有ユーザー情報はD1で管理する。
+
+将来的にコストやベンダーロックインが問題になった場合は、Better Auth等のセルフホスト型認証への移行余地を残す。
+
+## 11. 画像判定
+
+猫画像判定は TensorFlow.js + MobileNet 系を採用する。
+
+ただし、単純なMobileNet画像分類だけでは「画像の中のどこに猫がいるか」や「猫が小さく写っているケース」の検出に弱いため、実装時はTensorFlow.js上のCOCO-SSD（MobileNetバックボーン）も有力候補とする。
+
+画像判定は以下の2系統に分離する。
+- 猫画像 / 実写判定
+- 安全性 / モデレーション判定
+
+TensorFlow.js + MobileNet系は主に猫検出側で利用し、安全性判定は別モデルを採用する。
