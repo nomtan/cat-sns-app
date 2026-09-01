@@ -1,0 +1,13 @@
+{
+  "name": "cat-sns-app",
+  "private": true,
+  "packageManager": "pnpm@10.15.0",
+  "scripts": {
+    "dev": "pnpm --filter @cat-sns/api dev",
+    "typecheck": "pnpm -r typecheck",
+    "db:generate": "pnpm --filter @cat-sns/api db:generate"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}
