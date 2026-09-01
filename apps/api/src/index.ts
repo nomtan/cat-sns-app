@@ -1,9 +1,11 @@
 import { Hono } from "hono";
+import { dbHealthRoutes } from "./routes/db-health";
 import { healthRoutes } from "./routes/health";
 
 const app = new Hono<{ Bindings: Env }>();
 
 app.route("/health", healthRoutes);
+app.route("/health/db", dbHealthRoutes);
 
 app.get("/api/v1", (c) =>
   c.json({
