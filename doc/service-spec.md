@@ -307,13 +307,18 @@ MVPで以下の通知に対応する。
 
 ## 16. 最終画像モデレーション
 
-投稿画像は端末側の事前判定だけでは投稿確定できない。
+投稿画像の判定はALLOW / REJECT / REVIEWの3段階で扱う。
 
-Cloudflare Workers AI Visionによるサーバー側最終判定を必須とする。
+- ALLOW: 軽量モデルの結果が十分明確で、そのまま投稿可能
+- REJECT: 軽量モデルの結果が十分明確で、そのまま投稿不可
+- REVIEW: 判定が曖昧なため追加判定が必要
 
-最終投稿条件:
-- 端末側猫検出: OK
-- 端末側補助モデレーション: OK
-- Workers AI Vision最終判定: OK
+Cloudflare Workers AI Visionはすべての画像に対して必須ではない。
+REVIEWとなった画像に対してのみサーバー側の最終判定として使用する。
 
-Workers AI VisionでNGとなった場合は投稿不可とする。
+投稿条件:
+- 1投稿内のすべての画像が最終的にALLOWであること
+- 1枚でもREJECTなら投稿不可
+- REVIEW画像はWorkers AI VisionでALLOW / REJECTへ確定させてから投稿可否を決める
+
+これにより、Workers AIの利用量を抑えつつ、軽量モデルだけでは判断しにくい画像の精度を補完する。
