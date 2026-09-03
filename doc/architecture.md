@@ -1,20 +1,20 @@
 # Cat SNS App アーキテクチャ方針
 
-最終更新: 2026-09-01
+最終更新: 2026-09-04
 
 ## 1. 基本方針
 
-Web / iOS / Androidを1リポジトリで管理するモノレポ構成とする。
+Web / iOS / Androidを1リポジトリで管理するpnpmモノレポ構成とする。
 
-UIコンポーネントをWebとMobileで無理に共通化せず、以下を共通パッケージとして共有する。
-
+共有対象:
 - TypeScript型
 - APIクライアント
 - バリデーション
 - ドメインロジック
-- 定数
-- ユーティリティ
-- 必要に応じて状態管理ロジック
+- 定数 / ユーティリティ
+- デザイントークン
+
+UIコンポーネント自体はWebとMobileで原則分離する。
 
 ## 2. Mobile
 
@@ -23,206 +23,139 @@ UIコンポーネントをWebとMobileで無理に共通化せず、以下を共
 - Expo Router
 - HeroUI Native
 - TypeScript
+- Better Auth + `@better-auth/expo`
+- セッション保存: Expo SecureStore
 
-iOS / Androidは同一のReact Nativeアプリとして管理する。
+iOS / Androidは同一アプリとして管理する。
 
 ## 3. Web
 
 - Next.js
 - HeroUI React
 - TypeScript
-- Cloudflare Workers上へデプロイする方針
+- Better Auth React Client
+- Cloudflare Workersへデプロイする方針
 
-猫プロフィールや投稿ページは公開Webページとして利用されるため、SSR / SEOを考慮した構成とする。
+猫プロフィールや投稿ページは公開ページとして扱い、SSR / SEOを考慮する。
 
-HeroUI NativeはWebでは使用せず、HeroUI Reactを利用する。
+## 4. API
 
-## 4. パッケージ管理
+- Cloudflare Workers
+- Hono
+- Base: `/api/v1`
+- 認証: Better Auth
+- 認証エンドポイント: `/api/auth/*`
 
-- pnpm
-- pnpm workspaceによるモノレポ管理
+Better AuthとHonoはいずれもWeb Standard Request / Responseを利用するため、Better Auth handlerをHonoへ直接マウントする。
 
-## 5. 推奨ディレクトリ構成
+## 5. 認証基盤
+
+Better Authを採用する。
+
+対応方式:
+- Apple
+- Google
+- メールアドレス / パスワード
+
+構成:
+- Better AuthのDB: Cloudflare D1 bindingを直接利用
+- Expo連携: `@better-auth/expo`
+- Cloudflare Workers: `nodejs_compat`を有効化
+- 保護API: `auth.api.getSession()` でセッション検証
+
+Better Authコアテーブル:
+- `user`
+- `session`
+- `account`
+- `verification`
+
+SNS内部の`users`テーブルは公開プロフィールではなく、猫・フォロー・コメント等を結び付ける内部ミラーとして保持する。
+Better Authの`user.id`とSNS内部`users.id`は同じ値を利用する。
+
+ユーザー情報はSNS上では原則公開しない。
+
+## 6. DB
+
+- Cloudflare D1
+- アプリケーションDBアクセス: Drizzle ORM
+- Migration: SQL / Drizzle Kit
+
+Better Auth自身はD1 bindingを直接利用する。
+SNSドメイン側はDrizzle ORMを利用する。
+
+主要テーブル:
+- users
+- cats
+- breeds
+- posts
+- post_images
+- post_videos
+- follows
+- likes
+- comments
+- bookmarks
+- notifications
+- blocks
+- cat_mutes
+- reports
+- media_sessions
+- moderation_results
+
+## 7. Cloudflare
+
+- Workers: API / Better Auth
+- D1: RDB / Better Auth
+- R2: 投稿画像原本
+- Images: リサイズ / 最適化 / CDN
+- Stream: 動画保存 / 変換 / 配信
+- Queues: 画像判定・通知等
+- Workers AI Vision: REVIEW画像 / 動画フレームの最終判定
+- Turnstile: Web bot対策
+- KV: 必要になった段階で導入
+
+## 8. メディアモデレーション
+
+判定結果:
+- ALLOW
+- REJECT
+- REVIEW
+
+画像:
+1. TensorFlow.js + COCO-SSDで猫検出
+2. NSFWJS等で軽量補助判定
+3. ALLOW / REJECT / REVIEWへ集約
+4. REVIEWのみWorkers AI Visionへ送信
+
+動画:
+- Cloudflare Streamを利用
+- MVP最大30秒
+- 一定間隔でフレーム抽出
+- 各フレームに同じALLOW / REJECT / REVIEW判定を適用
+- REVIEWのみWorkers AI Visionへ送信
+
+## 9. ディレクトリ構成
 
 ```text
 cat-sns-app/
 ├─ apps/
-│  ├─ mobile/              # Expo / React Native
-│  ├─ web/                 # Next.js / HeroUI React
-│  └─ api/                 # Cloudflare Workers API
-│
+│  ├─ mobile/
+│  ├─ web/
+│  └─ api/
 ├─ packages/
-│  ├─ api-client/          # Web/Mobile共通APIクライアント
-│  ├─ types/               # 共通TypeScript型
-│  ├─ validation/          # 共通バリデーション
-│  ├─ domain/              # ドメインロジック
-│  ├─ config/              # 共通設定
-│  └─ utils/               # 共通ユーティリティ
-│
-├─ doc/
-│  ├─ service-spec.md
-│  └─ architecture.md
-│
-├─ pnpm-workspace.yaml
-└─ package.json
+│  ├─ api-client/
+│  ├─ types/
+│  ├─ validation/
+│  ├─ domain/
+│  ├─ config/
+│  └─ utils/
+└─ doc/
 ```
 
-## 6. UI共有方針
+## 10. 今後決める事項
 
-UIそのものはWebとMobileで分離する。
-
-### Mobile
-- HeroUI Native
-
-### Web
-- HeroUI React
-
-ただし、以下は共通化する。
-
-- デザイントークン
-  - 色
-  - 余白
-  - 角丸
-  - タイポグラフィ定義
-- APIレスポンス型
-- ViewModel相当の整形処理
-- バリデーションルール
-
-WebとMobileで見た目と操作感は揃えるが、React DOMとReact Nativeの差を吸収するため、UIコンポーネント自体の共通化は原則行わない。
-
-## 7. Cloudflare
-
-- Workers: API
-- D1: RDB
-- R2: 画像原本
-- Images: リサイズ / 最適化 / CDN
-- Stream: 動画保存 / 変換 / 配信
-- Queues: 画像判定・通知等
-- Turnstile: Web bot対策
-- KV: 必要になった段階で導入
-
-## 8. 今後決める事項
-
-- Next.jsのCloudflareデプロイ方式の最終決定
+- Next.jsのCloudflareデプロイ方式
 - 状態管理ライブラリ
-- Web / Mobile共通のデザイントークン実装方法
-- 状態管理ライブラリ
-- Web / Mobile共通のデザイントークン実装方法
-
-
-## 9. API / DBアクセス
-
-- APIフレームワーク: Hono
-- ORM / D1アクセス: Drizzle ORM
-
-Drizzle ORMを採用する理由:
-- Cloudflare D1との相性が良い
-- TypeScriptでスキーマ定義できる
-- 型安全なクエリを記述できる
-- マイグレーションをDrizzle Kitで管理できる
-- SQLを必要に応じて直接扱えるため、重すぎない
-
-## 10. 認証基盤
-
-第一候補として Clerk を採用する。
-
-要件:
-- Apple認証
-- Google認証
-- メールアドレス認証
-- Web / iOS / Androidで共通利用
-- Expo / React Native対応
-
-Cloudflare Workers API側ではClerkのセッション / トークンを検証し、アプリ固有ユーザー情報はD1で管理する。
-
-将来的にコストやベンダーロックインが問題になった場合は、Better Auth等のセルフホスト型認証への移行余地を残す。
-
-## 11. 画像判定
-
-猫画像判定は TensorFlow.js + MobileNet 系を採用する。
-
-ただし、単純なMobileNet画像分類だけでは「画像の中のどこに猫がいるか」や「猫が小さく写っているケース」の検出に弱いため、実装時はTensorFlow.js上のCOCO-SSD（MobileNetバックボーン）も有力候補とする。
-
-画像判定は以下の2系統に分離する。
-- 猫画像 / 実写判定
-- 安全性 / モデレーション判定
-
-TensorFlow.js + MobileNet系は主に猫検出側で利用し、安全性判定は別モデルを採用する。
-
-
-## 12. 画像モデレーションのエスカレーション方式
-
-画像判定結果は以下の3種類に統一する。
-
-- ALLOW: 明確に投稿可能
-- REJECT: 明確に投稿不可
-- REVIEW: 軽量モデルだけでは判断困難
-
-Cloudflare Workers AI Visionはすべての画像に対して実行せず、REVIEWとなった画像にのみ最終判定として使用する。
-
-### 12.1 判定フロー
-
-1. 端末側でTensorFlow.js + COCO-SSDによる猫検出
-2. 端末側でNSFWJS等による軽量な補助判定
-3. 軽量モデル群の結果をALLOW / REJECT / REVIEWへ集約
-4. ALLOWの場合はWorkers AI Visionを呼ばず投稿可能
-5. REJECTの場合はWorkers AI Visionを呼ばず投稿拒否
-6. REVIEWの場合のみCloudflare Workers AI Visionへ送信
-7. Workers AI Visionの結果を最終判断として投稿可否を決定
-
-### 12.2 REVIEWへ送る代表例
-
-- 猫検出confidenceが境界値付近
-- 猫が非常に小さく写っており軽量モデルでは確信できない
-- Drawing判定や実写判定が境界値付近
-- 安全性スコアが境界値付近
-- 複数モデルの判定結果が矛盾している
-- AI生成画像 / イラスト / ぬいぐるみか判断が難しい
-- 虐待 / 死骸 / 強い流血 / 重大な怪我の疑いがあるが確信度が不足している
-
-### 12.3 Workers AI Visionの役割
-
-主な確認項目:
-- 実写の猫が写っているか
-- AI生成画像 / イラスト / ぬいぐるみではないか
-- 虐待
-- 死骸
-- 強い流血
-- 重大な怪我
-- その他、サービス上不適切な重大表現
-
-利用モデルは実装時点で利用可能な画像入力対応Workers AIモデルから選定する。
-
-### 12.4 コスト方針
-
-- Workers AIの無料枠を最大限利用する
-- 明確なALLOW / REJECTは端末側軽量判定のみで完結させる
-- REVIEW画像だけWorkers AI Visionへ送ることでAI利用量を抑える
-- 無料枠超過時の挙動はサービス運用開始前に別途決定する
-
-### 12.5 セキュリティ上の注意
-
-端末側判定は改変される可能性があるため、投稿APIでは判定結果の真正性を検証できる仕組みを設ける。
-必要に応じてサーバー側でも軽量な再判定または判定メタデータ検証を行う。
-
-
-## 13. 動画配信
-
-動画配信にはCloudflare Streamを採用する。
-
-役割:
-- 動画アップロード
-- 動画保存
-- エンコード
-- 適応ビットレート配信
-- CDN配信
-
-MVP方針:
-- 最大30秒
-- 1投稿1動画
-- 画像と動画の混在投稿は初期版では不可
-- 1080p以下を推奨
-- 自動再生時はミュート
-
-動画モデレーションはフレーム抽出方式とし、抽出フレームに既存のALLOW / REJECT / REVIEW判定を適用する。
-REVIEW時のみWorkers AI Visionへエスカレーションする。
+- Web / Mobile共通デザイントークン実装
+- メール認証時のメール配送方式
+- Apple / Google OAuth本番設定
+- Better Authのメール確認 / パスワードリセットフロー

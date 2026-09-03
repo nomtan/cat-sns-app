@@ -1,36 +1,46 @@
 import type { MiddlewareHandler } from "hono";
+import { createAuth } from "../auth";
 import type { AppEnv } from "../types";
 
+const ensureAppUser = async (
+  db: D1Database,
+  user: { id: string; email: string },
+) => {
+  const now = Math.floor(Date.now() / 1000);
+
+  await db
+    .prepare(
+      `INSERT OR IGNORE INTO users (
+        id,
+        auth_user_id,
+        email,
+        created_at,
+        updated_at
+      ) VALUES (?, ?, ?, ?, ?)`,
+    )
+    .bind(user.id, user.id, user.email, now, now)
+    .run();
+};
+
 export const requireAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
-  const mode = c.env.AUTH_MODE;
+  const auth = createAuth(c.env);
+  const session = await auth.api.getSession({
+    headers: c.req.raw.headers,
+  });
 
-  if (mode === "dev") {
-    const userId = c.req.header("x-dev-user-id");
-
-    if (!userId) {
-      return c.json(
-        {
-          error: {
-            code: "UNAUTHORIZED",
-            message: "x-dev-user-id is required in dev auth mode",
-          },
+  if (!session) {
+    return c.json(
+      {
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Authentication required",
         },
-        401,
-      );
-    }
-
-    c.set("userId", userId);
-    await next();
-    return;
+      },
+      401,
+    );
   }
 
-  return c.json(
-    {
-      error: {
-        code: "AUTH_NOT_CONFIGURED",
-        message: "Authentication is not configured",
-      },
-    },
-    503,
-  );
+  await ensureAppUser(c.env.DB, session.user);
+  c.set("userId", session.user.id);
+  await next();
 };
