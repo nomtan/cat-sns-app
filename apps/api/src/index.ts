@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { createAuth } from "./auth";
 import { breedRoutes } from "./routes/breeds";
 import { catRoutes } from "./routes/cats";
 import { dbHealthRoutes } from "./routes/db-health";
@@ -8,6 +9,8 @@ import { meRoutes } from "./routes/me";
 import type { AppEnv } from "./types";
 
 const app = new Hono<AppEnv>();
+
+app.all("/api/auth/*", (c) => createAuth(c.env).handler(c.req.raw));
 
 app.route("/health", healthRoutes);
 app.route("/health/db", dbHealthRoutes);
