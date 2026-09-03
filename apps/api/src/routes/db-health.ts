@@ -1,8 +1,9 @@
-import { Hono } from "hono";
 import { sql } from "drizzle-orm";
+import { Hono } from "hono";
 import { createDb } from "../db/client";
+import type { AppEnv } from "../types";
 
-export const dbHealthRoutes = new Hono<{ Bindings: Env }>();
+export const dbHealthRoutes = new Hono<AppEnv>();
 
 dbHealthRoutes.get("/", async (c) => {
   const db = createDb(c.env.DB);
