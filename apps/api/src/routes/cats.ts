@@ -42,7 +42,6 @@ const parseCatInput = (input: CatInput) => {
   } as const;
 };
 
-breedRoutesPlaceholder: void 0;
 
 export const catRoutes = new Hono<AppEnv>();
 
