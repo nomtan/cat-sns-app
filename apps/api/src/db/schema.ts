@@ -11,14 +11,14 @@ export const users = sqliteTable(
   "users",
   {
     id: text("id").primaryKey(),
-    clerkUserId: text("clerk_user_id").notNull(),
+    authUserId: text("auth_user_id").notNull(),
     email: text("email").notNull(),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
     deletedAt: integer("deleted_at"),
   },
   (table) => [
-    uniqueIndex("users_clerk_user_id_uq").on(table.clerkUserId),
+    uniqueIndex("users_auth_user_id_uq").on(table.authUserId),
     index("users_email_idx").on(table.email),
   ],
 );
