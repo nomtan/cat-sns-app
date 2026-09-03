@@ -1,1 +1,9 @@
-AUTH_MODE=dev
+BETTER_AUTH_SECRET=replace-with-at-least-32-random-characters
+BETTER_AUTH_URL=http://localhost:8787
+TRUSTED_ORIGINS=http://localhost:3000,cat-sns://
+
+# Optional social login providers
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+APPLE_CLIENT_ID=
+APPLE_CLIENT_SECRET=
