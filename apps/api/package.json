@@ -7,7 +7,10 @@
     "deploy": "wrangler deploy",
     "typecheck": "tsc -p tsconfig.json",
     "db:generate": "drizzle-kit generate",
-    "cf:types": "wrangler types"
+    "cf:types": "wrangler types",
+    "db:migrate:local": "wrangler d1 migrations apply cat-sns-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply cat-sns-db --remote",
+    "db:seed:local": "wrangler d1 execute cat-sns-db --local --file=drizzle/dev-seed.sql"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",
