@@ -230,23 +230,29 @@ catRoutes.delete("/:catId", async (c) => {
   const userId = c.get("userId");
   const catId = c.req.param("catId");
 
-  const result = await db
-    .update(cats)
-    .set({ deletedAt: nowUnix(), updatedAt: nowUnix() })
+  const [owned] = await db
+    .select({ id: cats.id })
+    .from(cats)
     .where(
       and(
         eq(cats.id, catId),
         eq(cats.ownerUserId, userId),
         isNull(cats.deletedAt),
       ),
-    );
+    )
+    .limit(1);
 
-  if (!result.meta.changes) {
+  if (!owned) {
     return c.json(
       { error: { code: "NOT_FOUND", message: "Cat not found" } },
       404,
     );
   }
+
+  await db
+    .update(cats)
+    .set({ deletedAt: nowUnix(), updatedAt: nowUnix() })
+    .where(eq(cats.id, catId));
 
   return c.body(null, 204);
 });
