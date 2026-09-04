@@ -154,7 +154,41 @@ curl -X POST "http://localhost:8787/api/v1/media/sessions/<sessionId>/items/<ite
 
 MVPではWorker経由でR2へPUTする。将来、大容量転送の負荷が問題になった場合はS3互換APIの署名URL方式へ移行する。
 
-## 10. 現在のAPI
+## 10. Workers AIモデレーション
+
+画像の軽量判定結果は以下のように扱う。
+
+- `ALLOW`: Workers AIを呼ばず許可
+- `REJECT`: Workers AIを呼ばず拒否
+- `REVIEW`: R2から画像を読み出しWorkers AI Visionへ送り最終判定
+
+現在のVisionモデル:
+
+```text
+@cf/meta/llama-3.2-11b-vision-instruct
+```
+
+Workers AIは `wrangler.jsonc` の `AI` bindingを利用する。
+
+REVIEWの動作確認ではcomplete時に以下を送る。
+
+```json
+{
+  "width": 1600,
+  "height": 1200,
+  "clientDecision": "REVIEW",
+  "reason": "lightweight classifier confidence was borderline"
+}
+```
+
+Workers AIの応答は `ALLOW` / `REJECT` に正規化して `moderation_results` に保存する。
+AI実行エラーや不正な応答は投稿可否を確定せずAPIエラーとして扱い、再試行可能にする。
+
+動画はまだフレーム抽出未実装のため、動画REVIEWのみ従来のモック判定を維持する。Cloudflare Stream導入後にサンプリングした静止画フレームを同じWorkers AI判定へ渡す。
+
+MetaのVisionモデルをアカウントで初めて利用する場合、Cloudflare側でモデルライセンス同意が必要になる場合がある。
+
+## 11. 現在のAPI
 
 Better Auth:
 - ALL /api/auth/*
@@ -182,10 +216,9 @@ Better Auth:
 - POST /api/v1/posts
 - DELETE /api/v1/posts/:postId
 
-## 11. 次の実装
+## 12. 次の実装
 
-- Workers AIによるREVIEW最終判定
-- Cloudflare Stream動画アップロード
+- Cloudflare Stream動画アップロード / フレーム抽出
 - タイムラインAPI
 - Better Auth Expo Client
 - Google / Apple OAuth本番設定
