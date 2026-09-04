@@ -11,7 +11,7 @@ pnpm install
 ## 2. D1 database_id
 
 Cloudflare側のD1をまだ作成していない場合でもWrangler local D1で開発可能。
-remoteへ接続する場合は `apps/api/wrangler.jsonc` の `REPLACE_WITH_D1_DATABASE_ID` を実際のdatabase_idへ置換する。
+remoteへ接続する場合は `apps/api/wrangler.jsonc` の `database_id` を実際のD1 IDへ設定する。
 
 ## 3. Better Auth環境変数
 
@@ -109,14 +109,52 @@ curl -X POST http://localhost:8787/api/v1/cats \
   }'
 ```
 
-自分の猫一覧:
+## 9. R2メディアアップロード
+
+`MEDIA_BUCKET` bindingは `cat-sns-images` を利用する。
+
+画像1枚の例:
+
+1. メディアセッション作成
 
 ```bash
-curl http://localhost:8787/api/v1/me/cats \
-  -b cookies.txt
+curl -X POST http://localhost:8787/api/v1/media/sessions \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{
+    "type": "image",
+    "count": 1,
+    "mimeTypes": ["image/jpeg"]
+  }'
 ```
 
-## 9. 現在のAPI
+レスポンスの `items[0].uploadUrl` に対して画像本体をPUTする。
+
+```bash
+curl -X PUT "<uploadUrl>" \
+  -H "Content-Type: image/jpeg" \
+  -b cookies.txt \
+  --data-binary @cat.jpg
+```
+
+アップロード後にcompleteする。
+
+```bash
+curl -X POST "http://localhost:8787/api/v1/media/sessions/<sessionId>/items/<itemId>/complete" \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{
+    "width": 1600,
+    "height": 1200,
+    "clientDecision": "ALLOW"
+  }'
+```
+
+`complete` はR2上に実体が存在しない場合 `MEDIA_NOT_UPLOADED` を返す。
+
+MVPではWorker経由でR2へPUTする。将来、大容量転送の負荷が問題になった場合はS3互換APIの署名URL方式へ移行する。
+
+## 10. 現在のAPI
 
 Better Auth:
 - ALL /api/auth/*
@@ -128,6 +166,7 @@ Better Auth:
 - GET /api/v1/breeds
 - GET /api/v1/cats/:catId
 - GET /api/v1/cats/:catId/posts
+- GET /api/v1/posts/:postId
 
 認証必須:
 - POST /api/v1/cats
@@ -136,11 +175,17 @@ Better Auth:
 - GET /api/v1/me/cats
 - POST /api/v1/cats/:catId/follow
 - DELETE /api/v1/cats/:catId/follow
+- POST /api/v1/media/sessions
+- PUT /api/v1/media/sessions/:sessionId/items/:itemId/upload
+- POST /api/v1/media/sessions/:sessionId/items/:itemId/complete
+- GET /api/v1/media/sessions/:sessionId
+- POST /api/v1/posts
+- DELETE /api/v1/posts/:postId
 
-## 10. 次の実装
+## 11. 次の実装
 
-- R2画像アップロード
-- 投稿API
+- Workers AIによるREVIEW最終判定
+- Cloudflare Stream動画アップロード
 - タイムラインAPI
 - Better Auth Expo Client
 - Google / Apple OAuth本番設定
