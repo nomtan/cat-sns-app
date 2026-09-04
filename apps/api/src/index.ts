@@ -6,6 +6,8 @@ import { dbHealthRoutes } from "./routes/db-health";
 import { followRoutes } from "./routes/follows";
 import { healthRoutes } from "./routes/health";
 import { meRoutes } from "./routes/me";
+import { mediaRoutes } from "./routes/media";
+import { postRoutes } from "./routes/posts";
 import type { AppEnv } from "./types";
 
 const app = new Hono<AppEnv>();
@@ -19,6 +21,8 @@ app.route("/api/v1/breeds", breedRoutes);
 app.route("/api/v1/cats", catRoutes);
 app.route("/api/v1/cats", followRoutes);
 app.route("/api/v1/me", meRoutes);
+app.route("/api/v1/media", mediaRoutes);
+app.route("/api/v1/posts", postRoutes);
 
 app.get("/api/v1", (c) =>
   c.json({
