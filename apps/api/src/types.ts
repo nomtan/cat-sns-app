@@ -1,5 +1,8 @@
 export type AppBindings = {
   DB: D1Database;
+  MEDIA_BUCKET: R2Bucket;
+  AI: Ai;
+  STREAM: StreamBinding;
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
   TRUSTED_ORIGINS?: string;
