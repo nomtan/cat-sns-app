@@ -8,7 +8,8 @@ import { nowUnix } from "../lib/time";
 import { requireAuth } from "../middleware/auth";
 import { R2MediaStorage } from "../services/media/storage";
 import { MockModerationService } from "../services/moderation/mock";
-import type { ModerationDecision } from "../services/moderation/types";
+import type { ModerationDecision, ModerationService } from "../services/moderation/types";
+import { WorkersAiModerationService } from "../services/moderation/workers-ai";
 import type { AppEnv } from "../types";
 
 export const mediaRoutes = new Hono<AppEnv>();
@@ -171,10 +172,15 @@ mediaRoutes.post("/sessions/:sessionId/items/:itemId/complete", async (c) => {
     return c.json({ error: { code: "VALIDATION_ERROR", message: "clientDecision is required" } }, 400);
   }
 
-  const moderation = new MockModerationService();
+  const moderation: ModerationService = session.type === "image"
+    ? new WorkersAiModerationService(c.env.AI, c.env.MEDIA_BUCKET)
+    : new MockModerationService();
+
   const result = await moderation.moderate({
     mediaType: session.type === "image" ? "image" : "video_frame",
     mediaId: itemId,
+    storageKey: item.storageKey,
+    mimeType: item.mimeType ?? undefined,
     clientDecision,
     clientScores: body.clientScores,
     reason: body.reason,
@@ -201,7 +207,7 @@ mediaRoutes.post("/sessions/:sessionId/items/:itemId/complete", async (c) => {
     result: result.decision,
     reason: result.reason ?? null,
     scoresJson: body.clientScores ? JSON.stringify(body.clientScores) : null,
-    model: result.stage === "mock-review" ? "local-mock" : "client",
+    model: result.model ?? (result.stage === "mock-review" ? "local-mock" : "client"),
     createdAt: now,
   });
 
