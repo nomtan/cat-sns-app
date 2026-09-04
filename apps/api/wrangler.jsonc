@@ -8,7 +8,7 @@
     {
       "binding": "DB",
       "database_name": "cat-sns-db",
-      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "database_id": "d115902c-b427-4416-aa12-3f18bb25b19f",
       "migrations_dir": "drizzle"
     }
   ]
